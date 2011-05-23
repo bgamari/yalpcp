@@ -148,7 +148,7 @@ def write_ram(addr, data):
                 lines = chunk.encode('uu').split('\n')[1:-3]
                 for l in lines:
                         s.write('%s\r\n' % l)
-
+                
                 if i % 20 == 0 or i == len(lines)-1:
                         s.write('%d\r\n' % _compute_checksum(chunk))
                         r = s.readline()
@@ -195,7 +195,7 @@ if args.dump_flash is not None:
 
 if args.program is not None:
         import ihex
-        base = 0x10000000
+        base = 0x10000200
         max_offset = 0
         for rec in ihex.read_ihex(args.program):
                 if rec.__class__ == ihex.DataRec:
