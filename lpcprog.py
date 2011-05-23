@@ -18,8 +18,9 @@ for i in range(16, 30):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--device', type=str, help='Serial device to which device is connected', default='/dev/ttyUSB0')
-parser.add_argument('-f', '--dump-flash', type=argparse.FileType('w'), help='Dump FLASH contents to file')
+parser.add_argument('-f', '--dump-flash', metavar='FILE', type=argparse.FileType('w'), help='Dump FLASH contents to file')
 parser.add_argument('-s', '--speed', type=int, help='Crystal frequency in kilohertz', default=12000)
+parser.add_argument('-p', '--program', metavar='FILE', type=argparse.FileType('r'), help='Load a program from Intel HEX')
 args = parser.parse_args()
 
 s = serial.Serial(args.device, baudrate=115200, xonxoff=True)
@@ -175,13 +176,6 @@ def go(address, mode='T'):
         s.write('G %d %s\r\n' % (address, mode))
         _check_return_code()
 
-def dump_flash(f):
-        for i in range(0x80):
-                sys.stderr.write('Dumping 0x%08x to 0x%08x (%d%%)\r' % (0x1000*i, 0x1000*(i+1)-1, 100*i/0x80))
-                sys.stderr.flush()
-                f.write(read(0x1000*i, 0x1000))
-        sys.stderr.write('\n')
-
 def rw_test():
         write_ram(0x10000000, b'\x10'*16)
         print read_ram(0x10000000, 16)
@@ -193,23 +187,28 @@ logging.info('Found serial number %x' % get_serial())
 logging.info('Found bootloader version %s' % str(get_bl_version()))
 
 if args.dump_flash is not None:
-        dump_flash(args.dump_flash)
+        for i in range(0x80):
+                sys.stderr.write('Dumping 0x%08x to 0x%08x (%d%%)\r' % (0x1000*i, 0x1000*(i+1)-1, 100*i/0x80))
+                sys.stderr.flush()
+                args.dump_flash.write(read(0x1000*i, 0x1000))
+        sys.stderr.write('\n')
 
-import ihex
-base = 0x10000000
-max_offset = 0
-for rec in ihex.read_ihex(open('hello-world/main.hex')):
-        if rec.__class__ == ihex.DataRec:
-                write_ram(base+rec.addr, rec.data)
-                max_offset = max(max_offset, rec.addr)
-                logging.debug('Wrote %d bytes to %08x' % (len(rec.data), rec.addr))
+if args.program is not None:
+        import ihex
+        base = 0x10000000
+        max_offset = 0
+        for rec in ihex.read_ihex(args.program):
+                if rec.__class__ == ihex.DataRec:
+                        write_ram(base+rec.addr, rec.data)
+                        max_offset = max(max_offset, rec.addr)
+                        logging.debug('Wrote %d bytes to %08x' % (len(rec.data), rec.addr))
 
-if raw_input('Write %08x bytes to FLASH? (y/N)' % max_offset) != 'y':
-        sys.exit()
+        if raw_input('Write %08x bytes to FLASH? (y/N)' % max_offset) != 'y':
+                sys.exit()
 
-unlock()
-prepare_sectors(0,0)
-erase_sectors(0,0)
-prepare_sectors(0,0)
-copy_ram_to_flash(base, 0x0000, 4096)
+        unlock()
+        prepare_sectors(0,0)
+        erase_sectors(0,0)
+        prepare_sectors(0,0)
+        copy_ram_to_flash(base, 0x0000, 4096)
 
