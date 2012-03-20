@@ -50,7 +50,42 @@ def read_ihex(f):
                 else:
                         raise RuntimeError('Unsupported record type 0x%02x' % rectype)
 
+def write_ihex(f, recs):
+        def emit_record(addr, rtype, data=[]):
+                f.write(':%02x%04x%02x' % (len(data), addr, rtype))
+                for d in data: f.write('%02x' % d)
+                csum = sum(data) + rtype + addr + len(data)
+                csum = 0x100 - (csum & 0xff)
+                f.write('%02x\n' % csum)
+                
+        upper = 0
+        for rec in recs:
+                addr = 0
+                rtype = None
+                data = []
+                if rec.__class__ is DataRec:
+                        if rec.addr >> 16 != upper:
+                                # Emit extended linear address record
+                                upper = addr >> 16
+                                emit_record(0, 0x04, [upper & 0xff, (upper>>8) & 0xff])
+                        addr = rec.addr - upper
+                        data = rec.data
+                        rtype = 0x00
+                elif rec.__class__ is StartAddrRec:
+                        rtype = 0x03
+                        data = [ rec.cs & 0xff, (rec.cs>>8) & 0xff,
+                                 rec.ip & 0xff, (rec.ip>>8) & 0xff ]
+                elif rec.__class__ is StartLinearAddrRec:
+                        rtype = 0x05
+                        data = [ rec.eip & 0xff, (rec.eip>>8) & 0xff,
+                                 (rec.eip>>16) & 0xff, (rec.eip>>24) & 0xff ]
+                else:
+                        raise RuntimeError("Unknown IHEX record type")
+                
+                emit_record(addr, rtype, data)
+
 if __name__ == '__main__':
+        write_ihex(open('test.out', 'w'), read_ihex(open('test.hex')))
         f = open('test.hex')
         for r in read_ihex(f):
                 print r
