@@ -6,7 +6,7 @@ import uu
 import argparse
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 sectors = []
 for i in range(0, 16):
@@ -134,7 +134,7 @@ def read_ram(addr, length):
                         s.write('OK\r\n')
                         data += chunk
                 else:
-                        logging.info('Checksum mismatch during read')
+                        logging.info('Checksum mismatch during read... retrying')
                         s.write('RESEND\r\n')
 
                 if len(data) == length:
@@ -155,7 +155,7 @@ def write_ram(addr, data):
                         s.write('%d\r\n' % _compute_checksum(chunk))
                         r = s.readline()
                         if r == 'RESEND\r\n':
-                                logging.info('Checksum mismatch during write')
+                                logging.info('Checksum mismatch during write... retrying')
                                 continue
                         elif r != 'OK\r\n':
                                 raise RuntimeError('Unknown response during write: %s' % r)
