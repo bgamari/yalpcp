@@ -24,8 +24,10 @@ parser.add_argument('-p', '--program', metavar='FILE', type=argparse.FileType('r
 args = parser.parse_args()
 
 s = serial.Serial(args.device, baudrate=115200, xonxoff=True)
+s.flush()
 s.write('?')
-if s.readline() != 'Synchronized\r\n':
+a = s.readline()
+if not a.endswith('Synchronized\r\n'):
         raise RuntimeError('Failed to synchronize with device (1)')
 
 s.write('Synchronized\n')
