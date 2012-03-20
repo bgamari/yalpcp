@@ -82,6 +82,8 @@ def write_ihex(f, recs):
                 else:
                         raise RuntimeError("Unknown IHEX record type")
                 
+		if len(data) > 0xff:
+			raise RuntimeError("Invalid data length")
                 emit_record(addr, rtype, data)
 		
 	emit_record(0x0, 0x1)
