@@ -4,6 +4,7 @@ import sys
 import serial
 import uu
 import argparse
+import ihex
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -190,14 +191,21 @@ logging.info('Found serial number %x' % get_serial())
 logging.info('Found bootloader version %s' % str(get_bl_version()))
 
 if args.dump_flash is not None:
-        for i in range(0x80):
-                sys.stderr.write('Dumping 0x%08x to 0x%08x (%d%%)\r' % (0x1000*i, 0x1000*(i+1)-1, 100*i/0x80))
+        recs = []
+        chunk_sz = 0x1000
+        n_chunks = 0x80000 / chunk_sz
+        for i in range(n_chunks):
+                sys.stderr.write('Dumping 0x%08x to 0x%08x (%d%%)\r' % (chunk_sz*i, chunk_sz*(i+1)-1, 100*i/n_chunks))
                 sys.stderr.flush()
-                args.dump_flash.write(read_ram(0x1000*i, 0x1000))
+                d = read_ram(chunk_sz*i, chunk_sz)
+                #args.dump_flash.write(d)
+                for j in range(chunk_sz / 0x10):
+                        recs.append(ihex.DataRec(chunk_sz*i+0x10*j, d[0x10*j : 0x10*j + 0x10]))
+                
+        ihex.write_ihex(args.dump_flash, recs)
         sys.stderr.write('\n')
 
 if args.program is not None:
-        import ihex
         base = 0x10000200
         max_offset = 0
         for rec in ihex.read_ihex(args.program):
