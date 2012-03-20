@@ -15,7 +15,7 @@ def read_ihex(f):
                 count = int(l[1:3], 16)
                 addr = int(l[3:7], 16)
                 rectype = int(l[7:9], 16)
-                data = bytearray(int(l[9+2*i:2*i+11], 16) for i in range(count))
+                data = bytearray(int(l[9+2*i : 9+2*i+2], 16) for i in range(count))
                 csum = int(l[-2:], 16)
 
                 tmp = count + (0xff&addr) + (0xff&(addr>>8)) + rectype + sum(data) + csum
@@ -52,21 +52,21 @@ def read_ihex(f):
 
 def write_ihex(f, recs):
         def emit_record(addr, rtype, data=[]):
-                f.write(':%02x%04x%02x' % (len(data), addr, rtype))
-                for d in data: f.write('%02x' % d)
-                csum = sum(data) + rtype + addr + len(data)
-                csum = 0x100 - (csum & 0xff)
-                f.write('%02x\n' % csum)
+                f.write(':%02X%04X%02X' % (len(data), addr, rtype))
+                for d in data: f.write('%02X' % d)
+                csum = len(data) + (0xff&addr) + (0xff&(addr>>8)) + rtype + sum(data)
+                csum = 0xff & (0x100 - csum)
+                f.write('%02X\n' % csum)
                 
-        upper = 0
+        upper = 0x0
         for rec in recs:
-                addr = 0
+                addr = 0x0
                 rtype = None
                 data = []
                 if rec.__class__ is DataRec:
-                        if rec.addr >> 16 != upper:
+                        if rec.addr & 0xffff0000 != upper:
                                 # Emit extended linear address record
-                                upper = addr >> 16
+                                upper = addr & 0xffff0000
                                 emit_record(0, 0x04, [upper & 0xff, (upper>>8) & 0xff])
                         addr = rec.addr - upper
                         data = rec.data
@@ -83,6 +83,8 @@ def write_ihex(f, recs):
                         raise RuntimeError("Unknown IHEX record type")
                 
                 emit_record(addr, rtype, data)
+		
+	emit_record(0x0, 0x1)
 
 if __name__ == '__main__':
         write_ihex(open('test.out', 'w'), read_ihex(open('test.hex')))
