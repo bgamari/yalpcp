@@ -21,9 +21,10 @@ parser.add_argument('-d', '--device', type=str, help='Serial device to which dev
 parser.add_argument('-f', '--dump-flash', metavar='FILE', type=argparse.FileType('w'), help='Dump FLASH contents to file')
 parser.add_argument('-s', '--speed', type=int, help='Crystal frequency in kilohertz', default=12000)
 parser.add_argument('-p', '--program', metavar='FILE', type=argparse.FileType('r'), help='Load a program from Intel HEX')
+parser.add_argument('-b', '--baud', metavar='BAUD', type=int, help='Baud rate', default=115200)
 args = parser.parse_args()
 
-s = serial.Serial(args.device, baudrate=115200, xonxoff=True)
+s = serial.Serial(args.device, baudrate=args.baud, xonxoff=True)
 s.flush()
 s.write('?')
 a = s.readline()
