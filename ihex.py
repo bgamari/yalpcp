@@ -18,9 +18,9 @@ def read_ihex(f):
                 data = bytearray(int(l[9+2*i:2*i+11], 16) for i in range(count))
                 csum = int(l[-2:], 16)
 
-                tmp = count + (0xff&addr) + (0xff&(addr>>8)) + rectype + sum(data)
-                good_csum = 0x100 - (0xff & tmp)
-                if good_csum != csum:
+                tmp = count + (0xff&addr) + (0xff&(addr>>8)) + rectype + sum(data) + csum
+                tmp &= 0xff
+                if tmp != 0x00:
                         raise RuntimeError('Invalid checksum')
 
                 if rectype == 0x00:             # data
