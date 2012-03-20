@@ -192,7 +192,7 @@ if args.dump_flash is not None:
         for i in range(0x80):
                 sys.stderr.write('Dumping 0x%08x to 0x%08x (%d%%)\r' % (0x1000*i, 0x1000*(i+1)-1, 100*i/0x80))
                 sys.stderr.flush()
-                args.dump_flash.write(read(0x1000*i, 0x1000))
+                args.dump_flash.write(read_ram(0x1000*i, 0x1000))
         sys.stderr.write('\n')
 
 if args.program is not None:
