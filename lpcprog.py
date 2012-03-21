@@ -2,7 +2,7 @@
 
 import sys
 import serial
-import uu
+import binascii
 import argparse
 import ihex
 
@@ -114,21 +114,24 @@ def _check_return_code():
 def _compute_checksum(data):
         csum = 0
         for c in data:
-                csum += ord(c) & 0xff
+                csum += c & 0xff
         return csum
 
 def read_ram(addr, length):
         s.write('R %u %u\r\n' % (addr, length))
         _check_return_code()
 
-        data = ''
+        data = bytearray()
         while True:
-                chunk = ''
+                chunk = bytearray()
                 nlines = 0
                 while (len(chunk)+len(data)) < length and nlines < 20:
                         l = s.readline()
-                        encoded = 'begin 666 data\n%s\n`\nend\n' % l.strip()
-                        chunk += encoded.decode('uu')
+                        # Apparently uuencoding by bootloader is broken
+                        # Took following workaround from cython's uu module
+                        nbytes = (((ord(l[0])-32) & 63) * 4 + 5) // 3
+                        l = l[:nbytes]
+                        chunk += bytearray(binascii.a2b_uu(l))
                         nlines += 1
                 
                 good_csum = int(s.readline())
@@ -143,26 +146,30 @@ def read_ram(addr, length):
                         return bytearray(data)
 
 def write_ram(addr, data):
+        data = bytearray(data)
         s.write('W %u %d\r\n' % (addr, len(data)))
         _check_return_code()
 
-        i = 0
-        while i < len(data):
-                chunk = str(data[i:i+20*45])
-                lines = chunk.encode('uu').split('\n')[1:-3]
-                for l in lines:
+        offset = 0
+        while offset < len(data):
+                end = None
+                for j in range(0, 20):
+                        start = offset + j*45
+                        if start > len(data): break
+                        end = min(offset + (j+1)*45, len(data))
+                        l = binascii.b2a_uu(data[start:end])
                         s.write('%s\r\n' % l)
                 
-                if i % 20 == 0 or i == len(lines)-1:
-                        s.write('%d\r\n' % _compute_checksum(chunk))
-                        r = s.readline()
-                        if r == 'RESEND\r\n':
-                                logging.info('Checksum mismatch during write... retrying')
-                                continue
-                        elif r != 'OK\r\n':
-                                raise RuntimeError('Unknown response during write: %s' % r)
-
-                i += 20*45
+                chunk = data[offset:end]
+                s.write('%d\r\n' % _compute_checksum(chunk))
+                r = s.readline()
+                if r == 'RESEND\r\n':
+                        logging.info('Checksum mismatch during write... retrying')
+                        continue
+                elif r == 'OK\r\n':
+                        offset += 20*45
+                else:
+                        raise RuntimeError('Unknown response during write: %s' % r)
 
 def copy_ram_to_flash(ram_addr, flash_addr, length):
         s.write('C %d %d %d\r\n' % (flash_addr, ram_addr, length))
