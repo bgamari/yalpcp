@@ -210,10 +210,19 @@ if args.program is not None:
         max_offset = 0
         for rec in ihex.read_ihex(args.program):
                 if rec.__class__ == ihex.DataRec:
+                        print rec.addr
                         write_ram(base+rec.addr, rec.data)
                         max_offset = max(max_offset, rec.addr)
                         logging.debug('Wrote %d bytes to %08x' % (len(rec.data), rec.addr))
 
+        if True:
+                a = read_ram(base, 0x100)
+                csum = 0
+                for i in range(8):
+                        csum += a[4*i] + a[4*i+1]<<8 + a[4*i+2]<<16 + a[4*i+3]<<24
+                csum = ~csum - 1
+                write_ram(base+0x001c, [csum&0xff, (csum>>8)&0xff, (csum>>16)&0xff, (csum>>24)&0xff])
+                
         if raw_input('Write %08x bytes to FLASH? (y/N)' % max_offset) != 'y':
                 sys.exit()
 
